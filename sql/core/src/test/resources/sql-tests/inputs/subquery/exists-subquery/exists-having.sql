@@ -92,3 +92,10 @@ WHERE  EXISTS (SELECT dept_id,
                               FROM   bonus 
                               WHERE  ( bonus_amt > min(emp.salary) 
                                        AND count(emp.dept_id) > 1 )));
+
+
+SELECT a.id,
+EXISTS(SELECT *
+    FROM range(5) AS b
+    WHERE a.id = b.id)
+FROM range(10) AS a;

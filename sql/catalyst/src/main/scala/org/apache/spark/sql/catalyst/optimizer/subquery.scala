@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.catalyst.optimizer
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.sql.catalyst.expressions._
@@ -26,6 +27,8 @@ import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules._
 import org.apache.spark.sql.types._
+
+
 
 /*
  * This file defines optimization rules related to subqueries.
@@ -77,6 +80,22 @@ object RewritePredicateSubquery extends Rule[LogicalPlan] with PredicateHelper {
   }
 
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
+    case Project(projectlist, child) =>
+      val existsClauses = mutable.Buffer.empty[(Attribute, Exists)]
+      val rewrittenProjectList = projectlist.map { e =>
+        e.transform {
+          case e: Exists =>
+            val a = AttributeReference("e", BooleanType, nullable = false)()
+            existsClauses += a -> e
+            a
+        }.asInstanceOf[NamedExpression]
+      }
+      val joins = existsClauses.foldLeft(child) {
+        case (current, (attribute, Exists(sub, conditions, _))) =>
+          Join(current, sub, ExistenceJoin(attribute), conditions.reduceOption(And))
+      }
+      Project(rewrittenProjectList, joins)
+
     case Filter(condition, child) =>
       val (withSubquery, withoutSubquery) =
         splitConjunctivePredicates(condition).partition(SubqueryExpression.hasInOrExistsSubquery)

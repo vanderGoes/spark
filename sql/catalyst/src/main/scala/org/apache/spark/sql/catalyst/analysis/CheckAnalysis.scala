@@ -441,7 +441,7 @@ trait CheckAnalysis extends PredicateHelper {
 
       case inSubqueryOrExistsSubquery =>
         plan match {
-          case _: Filter => // Ok
+          case _: Filter | _: Project => // Ok
           case _ =>
             failAnalysis(s"IN/EXISTS predicate sub-queries can only be used in a Filter: $plan")
         }
